@@ -148,7 +148,7 @@ namespace BinanceApp
                 {
                     if (!_lastBuyAlertedCandle.TryGetValue(coin.Symbol, out var alertedTime) || alertedTime != lastCandleTime)
                     {
-                        string alertMsg = $"{coin.Symbol} BUY OPPORTUNITY!";
+                        string alertMsg = $"{coin.Symbol} BUY OPPORTUNITY! RSI={rsi:F2}, Price={currentPrice} < VWAP={vwap}";
                         await SendDiscordAlertAsync(alertMsg);
                         _lastBuyAlertedCandle[coin.Symbol] = lastCandleTime;
                     }
@@ -161,7 +161,7 @@ namespace BinanceApp
                 {
                     if (!_lastSellAlertedCandle.TryGetValue(coin.Symbol, out var alertedTime) || alertedTime != lastCandleTime)
                     {
-                        string alertMsg = $"{coin.Symbol} SELL OPPORTUNITY!";
+                        string alertMsg = $"{coin.Symbol} SELL SELL SELL SELL SELL SELL SELL";
                         await SendDiscordAlertAsync(alertMsg);
                         _lastSellAlertedCandle[coin.Symbol] = lastCandleTime;
                     }
