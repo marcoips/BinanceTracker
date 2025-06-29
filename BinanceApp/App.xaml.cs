@@ -1,6 +1,4 @@
-﻿using System.Configuration;
-using System.Data;
-using System.Windows;
+﻿/*using System.Windows;
 
 namespace BinanceApp
 {
@@ -9,6 +7,7 @@ namespace BinanceApp
     /// </summary>
     public partial class App : Application
     {
+        // No additional code needed for your current requirements.
     }
-
 }
+*/

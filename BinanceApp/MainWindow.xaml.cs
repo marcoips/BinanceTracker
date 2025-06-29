@@ -7,6 +7,8 @@ using System.Timers;
 using System.Windows;
 using Binance.Net.Clients;
 using Skender.Stock.Indicators;
+using System.Windows.Forms;
+using System.Drawing;
 
 namespace BinanceApp
 {
@@ -41,12 +43,45 @@ namespace BinanceApp
         }
 
         private System.Timers.Timer _timer;
+        private NotifyIcon _notifyIcon;
 
         public MainWindow()
         {
             InitializeComponent();
             DataContext = this;
+            SetupTrayIcon();
             LoadAllSymbols();
+        }
+
+        private void SetupTrayIcon()
+        {
+            _notifyIcon = new NotifyIcon
+            {
+                Icon = SystemIcons.Application,
+                Visible = true,
+                Text = "Binance Coin Tracker"
+            };
+            _notifyIcon.DoubleClick += (s, e) =>
+            {
+                this.Show();
+                this.WindowState = WindowState.Normal;
+                this.Activate();
+            };
+        }
+
+        protected override void OnStateChanged(EventArgs e)
+        {
+            base.OnStateChanged(e);
+            if (WindowState == WindowState.Minimized)
+            {
+                this.Hide();
+            }
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            _notifyIcon?.Dispose();
+            base.OnClosing(e);
         }
 
         private async void LoadAllSymbols()
@@ -61,7 +96,7 @@ namespace BinanceApp
                 .OrderBy(s => s)
                 .ToList();
 
-            Application.Current.Dispatcher.Invoke(() =>
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 AllSymbols.Clear();
                 foreach (var symbol in symbols)
@@ -107,7 +142,7 @@ namespace BinanceApp
             var vwap = quotes.GetVwap().LastOrDefault()?.Vwap ?? 0;
             var currentPrice = quotes.Last().Close;
 
-            Application.Current.Dispatcher.Invoke(() =>
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 SelectedCoinIndicator = new CoinIndicator
                 {
