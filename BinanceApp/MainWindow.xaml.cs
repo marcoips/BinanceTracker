@@ -20,11 +20,23 @@ namespace BinanceApp
     {
         public ObservableCollection<CoinIndicator> AllCoinIndicators { get; set; } = new();
 
+        private CoinIndicator _selectedBoughtCoin;
+        public CoinIndicator SelectedBoughtCoin
+        {
+            get => _selectedBoughtCoin;
+            set
+            {
+                _selectedBoughtCoin = value;
+                OnPropertyChanged(nameof(SelectedBoughtCoin));
+            }
+        }
+
         private System.Timers.Timer _timer;
         private NotifyIcon _notifyIcon;
 
-        // Track last alerted candle open time per symbol
-        private ConcurrentDictionary<string, DateTime> _lastAlertedCandle = new();
+        // Track last alerted candle open time per symbol for buy and sell
+        private ConcurrentDictionary<string, DateTime> _lastBuyAlertedCandle = new();
+        private ConcurrentDictionary<string, DateTime> _lastSellAlertedCandle = new();
 
         // Set your Discord webhook URL here
         private const string DiscordWebhookUrl = "https://discord.com/api/webhooks/1388951845992665208/aKR6tKgPS3Wuz5uEgRLQnrMf82x6_UeZjdd4wtmi0RT4LFtPlPuaIHcp0SEOwjsRgaOl";
@@ -94,7 +106,7 @@ namespace BinanceApp
         private void StartScanningAllCoins()
         {
             _timer?.Stop();
-            _timer = new System.Timers.Timer(60_000); // 1 minute
+            _timer = new System.Timers.Timer(900_000); // 15 minutes
             _timer.Elapsed += async (s, e) => await ScanAllCoinsForAlerts();
             _timer.AutoReset = true;
             _timer.Enabled = true;
@@ -131,14 +143,27 @@ namespace BinanceApp
                 var vwap = quotes.GetVwap().LastOrDefault()?.Vwap ?? 0;
                 var currentPrice = quotes.Last().Close;
 
-                // Alert logic for any coin, only once per candle
+                // Buy alert logic for any coin, only once per candle
                 if (rsi < 30 && (double)currentPrice < vwap)
                 {
-                    if (!_lastAlertedCandle.TryGetValue(coin.Symbol, out var alertedTime) || alertedTime != lastCandleTime)
+                    if (!_lastBuyAlertedCandle.TryGetValue(coin.Symbol, out var alertedTime) || alertedTime != lastCandleTime)
                     {
-                        string alertMsg = $"{coin.Symbol} BUY OPPORTUNITY! RSI={rsi:F2}, Price={currentPrice} < VWAP={vwap}";
+                        string alertMsg = $"{coin.Symbol} BUY OPPORTUNITY!";
                         await SendDiscordAlertAsync(alertMsg);
-                        _lastAlertedCandle[coin.Symbol] = lastCandleTime;
+                        _lastBuyAlertedCandle[coin.Symbol] = lastCandleTime;
+                    }
+                }
+
+                // Sell alert logic for only the selected bought coin, only once per candle
+                if (SelectedBoughtCoin != null &&
+                    coin.Symbol == SelectedBoughtCoin.Symbol &&
+                    rsi > 70 && (double)currentPrice > vwap)
+                {
+                    if (!_lastSellAlertedCandle.TryGetValue(coin.Symbol, out var alertedTime) || alertedTime != lastCandleTime)
+                    {
+                        string alertMsg = $"{coin.Symbol} SELL OPPORTUNITY!";
+                        await SendDiscordAlertAsync(alertMsg);
+                        _lastSellAlertedCandle[coin.Symbol] = lastCandleTime;
                     }
                 }
 
