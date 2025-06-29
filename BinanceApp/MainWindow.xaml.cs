@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -9,6 +10,9 @@ using Binance.Net.Clients;
 using Skender.Stock.Indicators;
 using System.Windows.Forms;
 using System.Drawing;
+using System.Net.Http;
+using System.Text.Json;
+using System.Text;
 
 namespace BinanceApp
 {
@@ -25,8 +29,7 @@ namespace BinanceApp
                 {
                     _selectedSymbol = value;
                     OnPropertyChanged(nameof(SelectedSymbol));
-                    if (!string.IsNullOrEmpty(_selectedSymbol))
-                        StartTrackingSelectedSymbol();
+                    UpdateSelectedCoinIndicator();
                 }
             }
         }
@@ -44,6 +47,12 @@ namespace BinanceApp
 
         private System.Timers.Timer _timer;
         private NotifyIcon _notifyIcon;
+
+        // Track last alerted candle open time per symbol
+        private ConcurrentDictionary<string, DateTime> _lastAlertedCandle = new();
+
+        // Set your Discord webhook URL here
+        private const string DiscordWebhookUrl = "https://discord.com/api/webhooks/1388951845992665208/aKR6tKgPS3Wuz5uEgRLQnrMf82x6_UeZjdd4wtmi0RT4LFtPlPuaIHcp0SEOwjsRgaOl";
 
         public MainWindow()
         {
@@ -96,32 +105,119 @@ namespace BinanceApp
                 .OrderBy(s => s)
                 .ToList();
 
+            // Use Dispatcher to update AllSymbols and THEN start scanning
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 AllSymbols.Clear();
                 foreach (var symbol in symbols)
                     AllSymbols.Add(symbol);
             });
+
+            // Start scanning after AllSymbols is populated
+            await ScanAllCoinsForAlerts();
+            StartScanningAllCoins();
         }
 
-        private void StartTrackingSelectedSymbol()
+
+
+        private void StartScanningAllCoins()
         {
             _timer?.Stop();
             _timer = new System.Timers.Timer(60_000); // 1 minute
-            _timer.Elapsed += async (s, e) => await FetchSelectedCoinIndicator();
+            _timer.Elapsed += async (s, e) => await ScanAllCoinsForAlerts();
             _timer.AutoReset = true;
             _timer.Enabled = true;
-            Task.Run(FetchSelectedCoinIndicator);
+            // Do NOT call Task.Run(ScanAllCoinsForAlerts) here, let the timer handle it
         }
 
-        private async Task FetchSelectedCoinIndicator()
+        private async Task ScanAllCoinsForAlerts()
+        {
+            var client = new BinanceRestClient();
+            foreach (var symbol in AllSymbols.ToList())
+            {
+                var klinesResult = await client.SpotApi.ExchangeData.GetKlinesAsync(
+                    symbol,
+                    Binance.Net.Enums.KlineInterval.FifteenMinutes,
+                    limit: 100);
+
+                if (!klinesResult.Success) continue;
+
+                var quotes = klinesResult.Data.Select(k => new Quote
+                {
+                    Date = k.OpenTime,
+                    Open = k.OpenPrice,
+                    High = k.HighPrice,
+                    Low = k.LowPrice,
+                    Close = k.ClosePrice,
+                    Volume = k.Volume
+                }).ToList();
+
+                if (quotes.Count < 14) continue;
+
+                var lastCandle = klinesResult.Data.Last();
+                var lastCandleTime = lastCandle.OpenTime;
+
+                var rsi = quotes.GetRsi(14).LastOrDefault()?.Rsi ?? 0;
+                var vwap = quotes.GetVwap().LastOrDefault()?.Vwap ?? 0;
+                var currentPrice = quotes.Last().Close;
+
+                // Alert logic for any coin, only once per candle
+                if (rsi < 30 && (double)currentPrice < vwap)
+                {
+                    if (!_lastAlertedCandle.TryGetValue(symbol, out var alertedTime) || alertedTime != lastCandleTime)
+                    {
+                        string alertMsg = $"{symbol}  BUY! ";
+                        await SendDiscordAlertAsync(alertMsg);
+                        _lastAlertedCandle[symbol] = lastCandleTime;
+                    }
+                }
+
+                // If this is the selected coin, update the UI
+                if (symbol == SelectedSymbol)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        SelectedCoinIndicator = new CoinIndicator
+                        {
+                            Symbol = symbol,
+                            RSI = rsi,
+                            VWAP = vwap,
+                            CurrentPrice = currentPrice
+                        };
+                    });
+                }
+
+                // Optional: throttle requests to avoid rate limits
+                await Task.Delay(200);
+            }
+        }
+
+        // Send alert to Discord webhook
+        private async Task SendDiscordAlertAsync(string message)
+        {
+            try
+            {
+                using var client = new HttpClient();
+                var payload = new { content = message };
+                var json = JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                await client.PostAsync(DiscordWebhookUrl, content);
+            }
+            catch
+            {
+                // Optionally handle/log errors
+            }
+        }
+
+        // Update the UI for the selected coin immediately when changed
+        private async void UpdateSelectedCoinIndicator()
         {
             if (string.IsNullOrEmpty(SelectedSymbol)) return;
 
             var client = new BinanceRestClient();
             var klinesResult = await client.SpotApi.ExchangeData.GetKlinesAsync(
                 SelectedSymbol,
-                Binance.Net.Enums.KlineInterval.FifteenMinutes, // 15-minute interval
+                Binance.Net.Enums.KlineInterval.FifteenMinutes,
                 limit: 100);
 
             if (!klinesResult.Success) return;

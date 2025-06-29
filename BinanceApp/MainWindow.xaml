@@ -1,9 +1,11 @@
 ﻿<Window x:Class="BinanceApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Binance Coin Tracker (EUR Pairs)" Height="200" Width="400">
+        Title="Binance Coin Tracker (EUR Pairs)" Height="260" Width="420">
     <StackPanel Margin="10">
-        <ComboBox x:Name="CoinSelector"
+        <TextBlock Text="Scanning all EUR coins" 
+                   FontWeight="Bold" Foreground="DarkGreen" Margin="0,0,0,10"/>
+        <ComboBox
                   Width="200"
                   Margin="0,0,0,10"
                   ItemsSource="{Binding AllSymbols}"
@@ -11,15 +13,15 @@
         <TextBlock Text="{Binding SelectedSymbol}" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
             <TextBlock Text="RSI(14): " FontWeight="Bold"/>
-            <TextBlock Text="{Binding SelectedCoinIndicator.RSI, StringFormat=F2}"/>
+            <TextBlock Text="{Binding SelectedCoinIndicator.RSI, StringFormat=F2, FallbackValue='-'}"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
             <TextBlock Text="VWAP: " FontWeight="Bold"/>
-            <TextBlock Text="{Binding SelectedCoinIndicator.VWAP}"/>
+            <TextBlock Text="{Binding SelectedCoinIndicator.VWAP, FallbackValue='-'}"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal">
             <TextBlock Text="Price (EUR): " FontWeight="Bold"/>
-            <TextBlock Text="{Binding SelectedCoinIndicator.CurrentPrice, StringFormat=F6}"/>
+            <TextBlock Text="{Binding SelectedCoinIndicator.CurrentPrice, StringFormat=F6, FallbackValue='-'}"/>
         </StackPanel>
     </StackPanel>
 </Window>
