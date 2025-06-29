@@ -1,0 +1,25 @@
+﻿<Window x:Class="BinanceApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Binance Coin Tracker (EUR Pairs)" Height="200" Width="400">
+    <StackPanel Margin="10">
+        <ComboBox x:Name="CoinSelector"
+                  Width="200"
+                  Margin="0,0,0,10"
+                  ItemsSource="{Binding AllSymbols}"
+                  SelectedItem="{Binding SelectedSymbol, Mode=TwoWay}" />
+        <TextBlock Text="{Binding SelectedSymbol}" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+            <TextBlock Text="RSI(14): " FontWeight="Bold"/>
+            <TextBlock Text="{Binding SelectedCoinIndicator.RSI, StringFormat=F2}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+            <TextBlock Text="VWAP: " FontWeight="Bold"/>
+            <TextBlock Text="{Binding SelectedCoinIndicator.VWAP}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Price (EUR): " FontWeight="Bold"/>
+            <TextBlock Text="{Binding SelectedCoinIndicator.CurrentPrice, StringFormat=F6}"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
