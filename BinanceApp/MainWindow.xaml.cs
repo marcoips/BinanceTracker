@@ -13,6 +13,7 @@ using System.Drawing;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text;
+using BinanceApp;
 
 namespace BinanceApp
 {
@@ -143,25 +144,49 @@ namespace BinanceApp
                 var vwap = quotes.GetVwap().LastOrDefault()?.Vwap ?? 0;
                 var currentPrice = quotes.Last().Close;
 
-                // Buy alert logic for any coin, only once per candle
-                if (rsi < 30 && (double)currentPrice < vwap)
+                // Convert to CandlePatterns.Candle
+                var candles = quotes.Select(q => new CandlePatterns.Candle
+                {
+                    Date = q.Date,
+                    Open = q.Open,
+                    High = q.High,
+                    Low = q.Low,
+                    Close = q.Close,
+                    Volume = q.Volume
+                }).ToList();
+
+                // Analyze patterns
+                var (patterns, signal) = CandlePatterns.AnalyzeCandlePatterns(candles);
+
+                // --- Combined Buy Alert ---
+                bool bullishPattern =
+                    CandlePatterns.IsBullishEngulfing(candles) ||
+                    CandlePatterns.IsHammer(candles) ||
+                    CandlePatterns.IsMorningStar(candles);
+
+                if (rsi < 30 && (double)currentPrice < vwap && bullishPattern)
                 {
                     if (!_lastBuyAlertedCandle.TryGetValue(coin.Symbol, out var alertedTime) || alertedTime != lastCandleTime)
                     {
-                        string alertMsg = $"{coin.Symbol} BUY OPPORTUNITY! RSI={rsi:F2}, Price={currentPrice} < VWAP={vwap}";
+                        string alertMsg = $"{coin.Symbol} BUY OPPORTUNITY! RSI={rsi:F2}, Price={currentPrice} < VWAP={vwap} (Pattern: Bullish)";
                         await SendDiscordAlertAsync(alertMsg);
                         _lastBuyAlertedCandle[coin.Symbol] = lastCandleTime;
                     }
                 }
 
-                // Sell alert logic for only the selected bought coin, only once per candle
+                // --- Combined Sell Alert (only for selected bought coin) ---
+                bool bearishPattern =
+                    CandlePatterns.IsBearishEngulfing(candles) ||
+                    CandlePatterns.IsShootingStar(candles) ||
+                    CandlePatterns.IsEveningStar(candles);
+
                 if (SelectedBoughtCoin != null &&
                     coin.Symbol == SelectedBoughtCoin.Symbol &&
-                    rsi > 70 && (double)currentPrice > vwap)
+                    rsi > 70 && (double)currentPrice > vwap && bearishPattern)
                 {
                     if (!_lastSellAlertedCandle.TryGetValue(coin.Symbol, out var alertedTime) || alertedTime != lastCandleTime)
                     {
-                        string alertMsg = $"{coin.Symbol} SELL SELL SELL SELL SELL SELL SELL";
+                        string alertMsg = $"{coin.Symbol} SELL OPPORTUNITY! RSI={rsi:F2}, Price={currentPrice} > VWAP={vwap} (Pattern: Bearish)";
                         await SendDiscordAlertAsync(alertMsg);
                         _lastSellAlertedCandle[coin.Symbol] = lastCandleTime;
                     }
@@ -173,6 +198,8 @@ namespace BinanceApp
                     coin.RSI = rsi;
                     coin.VWAP = vwap;
                     coin.CurrentPrice = currentPrice;
+                    coin.Patterns = patterns.Count > 0 ? string.Join(", ", patterns) : "None";
+                    coin.PatternSignal = signal;
                 });
 
                 await Task.Delay(200); // Throttle to avoid rate limits
@@ -203,6 +230,20 @@ namespace BinanceApp
 
     public class CoinIndicator : INotifyPropertyChanged
     {
+        private string _patterns;
+        public string Patterns
+        {
+            get => _patterns;
+            set { _patterns = value; OnPropertyChanged(nameof(Patterns)); }
+        }
+
+        private string _patternSignal;
+        public string PatternSignal
+        {
+            get => _patternSignal;
+            set { _patternSignal = value; OnPropertyChanged(nameof(PatternSignal)); }
+        }
+
         public string Symbol { get; set; }
 
         private double _rsi;
