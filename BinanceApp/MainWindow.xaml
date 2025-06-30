@@ -3,18 +3,36 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Binance Coin Tracker" Height="600" Width="1000">
     <Grid>
-        <DataGrid ItemsSource="{Binding AllCoinIndicators}" 
+        <DataGrid ItemsSource="{Binding AllCoinIndicators}"
+                  SelectedItem="{Binding SelectedBoughtCoin, Mode=TwoWay}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   SelectionMode="Single"
-                  SelectedItem="{Binding SelectedBoughtCoin, Mode=TwoWay}"
                   Margin="10">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding PatternSignal}" Value="BUY">
+                            <Setter Property="Background" Value="LightGreen"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding PatternSignal}" Value="SELL">
+                            <Setter Property="Background" Value="LightCoral"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding PatternSignal}" Value="BUY/SELL">
+                            <Setter Property="Background" Value="Khaki"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding PatternSignal}" Value="----">
+                            <Setter Property="Background" Value="White"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Symbol" Binding="{Binding Symbol}" Width="*" />
                 <DataGridTextColumn Header="RSI" Binding="{Binding RSI, StringFormat=F2}" Width="80" />
                 <DataGridTextColumn Header="VWAP" Binding="{Binding VWAP, StringFormat=F2}" Width="100" />
                 <DataGridTextColumn Header="Current Price" Binding="{Binding CurrentPrice, StringFormat=F6}" Width="120" />
-                <DataGridTextColumn Header="Patterns" Binding="{Binding Patterns}" Width="200" />
+                <DataGridTextColumn Header="Patterns" Binding="{Binding Patterns}" Width="250" />
                 <DataGridTextColumn Header="Pattern Signal" Binding="{Binding PatternSignal}" Width="100" />
             </DataGrid.Columns>
         </DataGrid>
